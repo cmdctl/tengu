@@ -1,8 +1,7 @@
 use std::{fs, io::Write, path::PathBuf};
+use super::models::Connection;
 
-use crate::Connection;
-
-pub(crate) struct FsTenguRepository {
+pub struct FsTenguRepository {
     base_path: PathBuf,
     active_conn_file_path: PathBuf,
 }
@@ -22,7 +21,7 @@ impl FsTenguRepository {
     }
 }
 
-pub(crate) trait TenguRepository {
+pub trait TenguRepository {
     fn insert(&self, connection: &Connection);
     fn update(&self, connection: &Connection);
     fn delete(&self, name: String);
