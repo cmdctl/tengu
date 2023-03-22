@@ -1,7 +1,7 @@
 use anyhow::Result;
-use tengu::start_tui;
+use terminal_ui::start_tui;
 
-mod tengu;
+mod terminal_ui;
 
 fn main() -> Result<()> {
     start_tui()
