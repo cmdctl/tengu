@@ -21,11 +21,12 @@ use tui::{
 mod repository;
 
 const APP_KEYS_DESC: &str = r#"
-L:           List
-A:           On list, It's Activate connection
-D:           On list, It's Delete connection
-E:           On list, It's Edit connection
-S:           Search
+USAGE:
+l:           List
+a:           On list, It's Activate connection
+d:           On list, It's Delete connection
+e:           On list, It's Edit connection
+s:           Search
 i:           Insert new Connection
 Tab:         Go to next field
 Shift+Tab:   Go to previous filed
@@ -515,14 +516,31 @@ fn ui(f: &mut tui::Frame<CrosstermBackend<std::io::Stdout>>, state: &mut Tengu<F
     let new_section_block = Block::default()
         .title("New Connection")
         .borders(Borders::ALL)
-        .border_type(BorderType::Rounded);
+        .border_type(BorderType::Rounded)
+        .style(match state.mode {
+            InputMode::Name
+            | InputMode::Engine
+            | InputMode::Host
+            | InputMode::Port
+            | InputMode::Username
+            | InputMode::Password
+            | InputMode::Database
+            | InputMode::Submit => Style::default().fg(Color::LightGreen),
+            _ => Style::default(),
+        });
     f.render_widget(new_section_block, parent_chunk[0]);
     new_section(f, state, parent_chunk[0]);
 
     let list_section_block = Block::default()
         .title("List of Connections")
         .borders(Borders::ALL)
-        .border_type(BorderType::Rounded);
+        .border_type(BorderType::Rounded)
+        .style(match state.mode {
+            InputMode::List | InputMode::Delete | InputMode::Search => {
+                Style::default().fg(Color::LightGreen)
+            }
+            _ => Style::default(),
+        });
     f.render_widget(list_section_block, parent_chunk[1]);
     list_section(f, state, parent_chunk[1]);
 
@@ -657,13 +675,19 @@ fn new_section(
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
+                Constraint::Length(3),
             ]
             .as_ref(),
         )
         .split(area);
+    let active_connection = state.repo.get_active_connection();
+    let active_connection_paragraph = Paragraph::new(active_connection.map_or("".to_string(), |c| {
+        format!("Active connection: {} {}", c.name, c.engine)
+    })).style(Style::default().fg(Color::LightGreen));
 
-    let desc = Paragraph::new(APP_KEYS_DESC);
+    let desc = Paragraph::new(APP_KEYS_DESC).style(Style::default().fg(Color::LightMagenta));
     f.render_widget(desc, new_section_chunk[0]);
+    f.render_widget(active_connection_paragraph, new_section_chunk[1]);
 
     let name_input = Paragraph::new(state.new_name.to_owned())
         .block(
@@ -676,7 +700,7 @@ fn new_section(
             InputMode::Name => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(name_input, new_section_chunk[1]);
+    f.render_widget(name_input, new_section_chunk[2]);
 
     let engine_input = Paragraph::new(state.new_engine.to_owned())
         .block(
@@ -689,7 +713,7 @@ fn new_section(
             InputMode::Engine => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(engine_input, new_section_chunk[2]);
+    f.render_widget(engine_input, new_section_chunk[3]);
 
     let host_input = Paragraph::new(state.new_host.to_owned())
         .block(
@@ -702,7 +726,7 @@ fn new_section(
             InputMode::Host => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(host_input, new_section_chunk[3]);
+    f.render_widget(host_input, new_section_chunk[4]);
 
     let port_input = Paragraph::new(state.new_port.to_owned())
         .block(
@@ -715,7 +739,7 @@ fn new_section(
             InputMode::Port => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(port_input, new_section_chunk[4]);
+    f.render_widget(port_input, new_section_chunk[5]);
 
     let username_input = Paragraph::new(state.new_username.to_owned())
         .block(
@@ -728,7 +752,7 @@ fn new_section(
             InputMode::Username => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(username_input, new_section_chunk[5]);
+    f.render_widget(username_input, new_section_chunk[6]);
 
     let password_input = Paragraph::new(state.new_password.to_owned())
         .block(
@@ -741,7 +765,7 @@ fn new_section(
             InputMode::Password => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(password_input, new_section_chunk[6]);
+    f.render_widget(password_input, new_section_chunk[7]);
 
     let database_input = Paragraph::new(state.new_database.to_owned())
         .block(
@@ -754,7 +778,7 @@ fn new_section(
             InputMode::Database => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(database_input, new_section_chunk[7]);
+    f.render_widget(database_input, new_section_chunk[8]);
 
     let submit_btn = Paragraph::new("Submit")
         .alignment(Alignment::Center)
@@ -767,7 +791,7 @@ fn new_section(
             InputMode::Submit => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(submit_btn, new_section_chunk[8]);
+    f.render_widget(submit_btn, new_section_chunk[9]);
 }
 
 fn main() -> Result<()> {
