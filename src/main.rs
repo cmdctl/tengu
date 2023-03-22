@@ -624,7 +624,7 @@ fn list_section(
                     }
                 }),
                 item.name.to_owned(),
-                item.to_string(),
+                item.engine,
             )),
             _ => ListItem::new(Span::from(item.name)),
         })
