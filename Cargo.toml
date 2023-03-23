@@ -12,3 +12,7 @@ dirs = "4.0.0"
 anyhow = "1.0.70"
 serde_json = "1.0.94"
 serde = { version = "1.0.158", features = ["derive"] }
+tiberius = {version ="0.12.1", default-features = false, features = ["tds73", "rust_decimal", "chrono"]}
+tokio = {version = "1.25.0", features = ["full"]}
+tokio-util = { version = "0.7.7", features = ["compat"] }
+chrono = "0.4.24"
