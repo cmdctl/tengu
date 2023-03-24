@@ -215,6 +215,9 @@ pub fn run_app(
                 },
 
                 InputMode::Search => match key.code {
+                    KeyCode::Char('q') => {
+                        return Ok(());
+                    }
                     KeyCode::Esc => {
                         state.change_mode(InputMode::Normal);
                     }
@@ -230,6 +233,9 @@ pub fn run_app(
                 },
 
                 InputMode::List => match key.code {
+                    KeyCode::Char('q') => {
+                        return Ok(());
+                    }
                     KeyCode::Esc => {
                         state.list_state.select(None);
                         state.change_mode(InputMode::Normal);
@@ -253,6 +259,9 @@ pub fn run_app(
                 },
 
                 InputMode::Delete => match key.code {
+                    KeyCode::Char('q') => {
+                        return Ok(());
+                    }
                     KeyCode::Char('n') => {
                         state.change_mode(InputMode::List);
                     }
