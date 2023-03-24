@@ -4,13 +4,16 @@ use terminal_ui::{repository::FsTenguRepository, start_tui};
 use tokio::main;
 use clap::{Parser, Subcommand};
 use std::io;
+use lsp::server::start_lsp;
 
 mod terminal_ui;
 mod sql_tools;
+mod lsp;
 
 #[derive(Subcommand, Debug)]
 enum Command {
     Exec,
+    Lsp,
 }
 
 #[derive(Parser, Debug)]
@@ -34,6 +37,9 @@ async fn main() -> Result<()> {
             }
             let repo = FsTenguRepository::new();
             exec_sql(repo, &sql).await?;
+        }
+        Some(Command::Lsp) => {
+            start_lsp().await;
         }
         None => {
             start_tui()?;
