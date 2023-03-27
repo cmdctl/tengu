@@ -8,25 +8,21 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::sql_tools::tools::{get_tables, Table};
-use crate::terminal_ui::models::Connection;
-use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
+use crate::terminal_ui::repository::FsTenguRepository;
 
 #[derive(Debug)]
-struct Backend<R: TenguRepository> {
+struct Backend {
     client: Client,
-    repo: R,
-    active_connection: Option<Connection>,
 }
 
 static ALL_TABLES: Lazy<Arc<Mutex<HashSet<Table>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashSet::new())));
 
 #[tower_lsp::async_trait]
-impl LanguageServer for Backend<FsTenguRepository> {
+impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        let active_connection = self.repo.get_active_connection();
-        self.active_connection = active_connection;
-        let tables = get_tables(self.repo).await.unwrap();
+        let repo = FsTenguRepository::new();
+        let tables = get_tables(repo).await.unwrap();
         let mut all_tables = ALL_TABLES.lock().await;
         for table in tables {
             all_tables.insert(table);
@@ -63,6 +59,9 @@ impl LanguageServer for Backend<FsTenguRepository> {
 
     async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
         let all_tables = ALL_TABLES.lock().await;
+        self.client
+            .log_message(MessageType::INFO, format!("all_tables: {:?}", all_tables))
+            .await;
         let mut items = Vec::new();
         let completions = || -> Option<Vec<CompletionItem>> {
             for table in all_tables.iter() {
@@ -76,6 +75,9 @@ impl LanguageServer for Backend<FsTenguRepository> {
             }
             Some(items)
         }();
+        self.client
+            .log_message(MessageType::INFO, format!("completions: {:?}", completions))
+            .await;
         Ok(completions.map(CompletionResponse::Array))
     }
 }
@@ -83,13 +85,7 @@ impl LanguageServer for Backend<FsTenguRepository> {
 pub async fn start_lsp() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
-    let repo = FsTenguRepository::new();
-    let active_connection = repo.get_active_connection();
 
-    let (service, socket) = LspService::new(|client| Backend {
-        client,
-        repo,
-        active_connection,
-    });
+    let (service, socket) = LspService::new(|client| Backend { client });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
