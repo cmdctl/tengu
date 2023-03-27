@@ -246,7 +246,7 @@ pub fn run_app(
                     KeyCode::Char('j') => {
                         state.move_down();
                     }
-                    KeyCode::Char('a') => {
+                    KeyCode::Enter => {
                         state.activate_connection();
                     }
                     KeyCode::Char('e') => {

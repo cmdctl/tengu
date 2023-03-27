@@ -75,7 +75,7 @@ impl Tengu<FsTenguRepository> {
         let connections = repo.list();
         Tengu {
             repo,
-            mode: InputMode::Normal,
+            mode: InputMode::List,
             list_state: ListState::default(),
             connections,
             search_txt: String::new(),

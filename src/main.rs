@@ -1,9 +1,9 @@
 use anyhow::Result;
+use sql_tools::{sql_from_stdin, tools::get_tables};
 use sql_tools::exec::exec_sql;
 use terminal_ui::{repository::FsTenguRepository, start_tui};
 use tokio::main;
 use clap::{Parser, Subcommand};
-use std::io;
 use lsp::server::start_lsp;
 
 mod terminal_ui;
@@ -14,6 +14,7 @@ mod lsp;
 enum Command {
     Exec,
     Lsp,
+    Tables,
 }
 
 #[derive(Parser, Debug)]
@@ -26,15 +27,15 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
     match args.commands {
-        Some(Command::Exec) => {
-            let mut sql = String::new();
-            let mut lines = io::stdin().lines();
-            while let Some(line) = lines.next() {
-                let line = line?;
-                if !line.starts_with("--") {
-                    sql.push_str(&line);
-                }
+        Some(Command::Tables) => {
+            let repo = FsTenguRepository::new();
+            let tables = get_tables(repo).await?;
+            for table in tables {
+                println!("{:?}", table);
             }
+        }
+        Some(Command::Exec) => {
+            let sql = sql_from_stdin()?;
             let repo = FsTenguRepository::new();
             exec_sql(repo, &sql).await?;
         }

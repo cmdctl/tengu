@@ -14,7 +14,7 @@ use tui::{
 const APP_KEYS_DESC: &str = r#"
 USAGE:
 l:           List
-a:           On list, It's Activate connection
+Enter:       On list, It's Activate connection
 d:           On list, It's Delete connection
 e:           On list, It's Edit connection
 s:           Search
@@ -48,8 +48,8 @@ pub fn ui(
             | InputMode::Submit => Style::default().fg(Color::LightGreen),
             _ => Style::default(),
         });
-    f.render_widget(new_section_block, parent_chunk[0]);
-    new_section(f, state, parent_chunk[0]);
+    f.render_widget(new_section_block, parent_chunk[1]);
+    new_section(f, state, parent_chunk[1]);
 
     let list_section_block = Block::default()
         .title("List of Connections")
@@ -61,8 +61,8 @@ pub fn ui(
             }
             _ => Style::default(),
         });
-    f.render_widget(list_section_block, parent_chunk[1]);
-    list_section(f, state, parent_chunk[1]);
+    f.render_widget(list_section_block, parent_chunk[0]);
+    list_section(f, state, parent_chunk[0]);
 
     delete_popup(f, state);
 }
