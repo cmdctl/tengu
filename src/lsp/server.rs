@@ -75,9 +75,6 @@ impl LanguageServer for Backend {
             }
             Some(items)
         }();
-        self.client
-            .log_message(MessageType::INFO, format!("completions: {:?}", completions))
-            .await;
         Ok(completions.map(CompletionResponse::Array))
     }
 }
