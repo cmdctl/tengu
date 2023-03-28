@@ -7,6 +7,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use crate::sql_tools::keywords::KEYWORDS;
 use crate::sql_tools::tools::{get_tables, Table};
 use crate::terminal_ui::repository::FsTenguRepository;
 
@@ -62,10 +63,10 @@ impl LanguageServer for Backend {
         self.client
             .log_message(MessageType::INFO, format!("all_tables: {:?}", all_tables))
             .await;
-        let mut items = Vec::new();
-        let completions = || -> Option<Vec<CompletionItem>> {
+        let table_completions = || -> Option<Vec<CompletionItem>> {
+            let mut table_items = Vec::new();
             for table in all_tables.iter() {
-                items.push(CompletionItem {
+                table_items.push(CompletionItem {
                     label: table.name.clone(),
                     kind: Some(CompletionItemKind::CLASS),
                     insert_text: Some(table.name.clone()),
@@ -73,8 +74,23 @@ impl LanguageServer for Backend {
                     ..CompletionItem::default()
                 });
             }
-            Some(items)
+            Some(table_items)
         }();
+        let keyword_completions = || -> Option<Vec<CompletionItem>> {
+            let mut keyword_items = Vec::new();
+            for keyword in KEYWORDS.iter() {
+                keyword_items.push(CompletionItem {
+                    label: keyword.to_string(),
+                    kind: Some(CompletionItemKind::KEYWORD),
+                    insert_text: Some(keyword.to_string()),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    ..CompletionItem::default()
+                });
+            }
+            Some(keyword_items)
+        }();
+
+        let completions = concat_optional_vecs(table_completions, keyword_completions);
         Ok(completions.map(CompletionResponse::Array))
     }
 }
@@ -85,4 +101,16 @@ pub async fn start_lsp() {
 
     let (service, socket) = LspService::new(|client| Backend { client });
     Server::new(stdin, stdout, socket).serve(service).await;
+}
+
+fn concat_optional_vecs<T>(opt_vec1: Option<Vec<T>>, opt_vec2: Option<Vec<T>>) -> Option<Vec<T>> {
+    match (opt_vec1, opt_vec2) {
+        (Some(mut vec1), Some(vec2)) => {
+            vec1.extend(vec2);
+            Some(vec1)
+        }
+        (Some(vec1), None) => Some(vec1),
+        (None, Some(vec2)) => Some(vec2),
+        (None, None) => None,
+    }
 }

@@ -1,6 +1,7 @@
 pub mod exec;
 pub mod tools;
 pub mod tokenizer;
+pub mod keywords;
 
 use std::io;
 use anyhow::Result;
