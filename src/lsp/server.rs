@@ -9,7 +9,9 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::sql_tools::keywords::KEYWORDS;
 use crate::sql_tools::tools::{get_tables, Table};
-use crate::terminal_ui::repository::FsTenguRepository;
+use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
+
+use super::file_watch::async_watch;
 
 #[derive(Debug)]
 struct Backend {
@@ -98,6 +100,17 @@ impl LanguageServer for Backend {
 pub async fn start_lsp() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
+    let repo = FsTenguRepository::new();
+    let active_connection_path = repo.activate_connection_path();
+
+    tokio::spawn(async move {
+        match async_watch(active_connection_path, reset_all_tables).await {
+            Ok(_) => {}
+            Err(e) => {
+                println!("watch error: {:?}", e);
+            }
+        }
+    });
 
     let (service, socket) = LspService::new(|client| Backend { client });
     Server::new(stdin, stdout, socket).serve(service).await;
@@ -112,5 +125,22 @@ fn concat_optional_vecs<T>(opt_vec1: Option<Vec<T>>, opt_vec2: Option<Vec<T>>) -
         (Some(vec1), None) => Some(vec1),
         (None, Some(vec2)) => Some(vec2),
         (None, None) => None,
+    }
+}
+
+async fn reset_all_tables(e: notify::Result<notify::Event>) {
+    match e {
+        Ok(_) => {
+            let mut all_tables = ALL_TABLES.lock().await;
+            all_tables.clear();
+            let repo = FsTenguRepository::new();
+            let tables = get_tables(repo).await.unwrap();
+            for table in tables {
+                all_tables.insert(table);
+            }
+        }
+        Err(e) => {
+            println!("watch error: {:?}", e);
+        }
     }
 }

@@ -1,6 +1,7 @@
 use std::{fs, io::Write, path::PathBuf};
 use super::models::Connection;
 
+#[derive(Debug, Clone)]
 pub struct FsTenguRepository {
     base_path: PathBuf,
     active_conn_file_path: PathBuf,
@@ -26,6 +27,7 @@ pub trait TenguRepository {
     fn update(&self, connection: &Connection);
     fn delete(&self, name: String);
     fn activate_connection(&mut self, connection: &Connection);
+    fn activate_connection_path(&self) -> PathBuf;
     fn get_active_connection(&self) -> Option<Connection>;
     fn list(&self) -> Vec<Connection>;
 }
@@ -78,5 +80,11 @@ impl TenguRepository for FsTenguRepository {
             }
         });
         connections
+    }
+
+    fn activate_connection_path(&self) -> PathBuf {
+        let base_path = dirs::home_dir().unwrap().join(".config").join("tengu");
+        let active_conn_file_path = base_path.join(".active");
+        return active_conn_file_path;
     }
 }
