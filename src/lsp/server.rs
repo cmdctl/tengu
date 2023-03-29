@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fs;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
@@ -8,7 +9,8 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use crate::sql_tools::keywords::KEYWORDS;
-use crate::sql_tools::tools::{get_tables, Table};
+use crate::sql_tools::tokenizer::{intersection, tokenize, Token};
+use crate::sql_tools::tools::{get_table_columns, get_tables, Table};
 use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
 
 use super::file_watch::async_watch;
@@ -16,6 +18,7 @@ use super::file_watch::async_watch;
 #[derive(Debug)]
 struct Backend {
     client: Client,
+    repo: FsTenguRepository,
 }
 
 static ALL_TABLES: Lazy<Arc<Mutex<HashSet<Table>>>> =
@@ -60,11 +63,8 @@ impl LanguageServer for Backend {
         Ok(())
     }
 
-    async fn completion(&self, _: CompletionParams) -> Result<Option<CompletionResponse>> {
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let all_tables = ALL_TABLES.lock().await;
-        self.client
-            .log_message(MessageType::INFO, format!("all_tables: {:?}", all_tables))
-            .await;
         let table_completions = || -> Option<Vec<CompletionItem>> {
             let mut table_items = Vec::new();
             for table in all_tables.iter() {
@@ -91,8 +91,54 @@ impl LanguageServer for Backend {
             }
             Some(keyword_items)
         }();
+        let sql_file_path = params
+            .text_document_position
+            .text_document
+            .uri
+            .to_file_path()
+            .unwrap();
+        let sql_file_content = fs::read_to_string(sql_file_path).unwrap();
+        let content_tokens: Vec<_> = tokenize(sql_file_content.clone())
+            .iter()
+            .filter(|&t| if let Token::Token(_) = t { true } else { false })
+            .map(|t| match t {
+                Token::Token(t) => t.clone(),
+                _ => unreachable!(),
+            })
+            .collect();
+        let tables = all_tables.iter().map(|t| t.clone().name).collect();
+        let tables_to_query = intersection(tables, content_tokens);
+        let tables_to_query: Vec<_> = all_tables
+            .iter()
+            .filter(|&t| tables_to_query.contains(&t.name))
+            .map(|t| t.clone())
+            .collect();
+
+        let Ok(columns) = get_table_columns(self.repo.clone(), tables_to_query).await else {
+            let completions = concat_optional_vecs(table_completions, keyword_completions);
+            return Ok(completions.map(CompletionResponse::Array))
+
+        };
+        let column_completions = || -> Option<Vec<CompletionItem>> {
+            let mut column_items = Vec::new();
+            for column in columns.iter() {
+                column_items.push(CompletionItem {
+                    label: column.0.clone(),
+                    label_details: Some(CompletionItemLabelDetails {
+                        detail: Some(column.1.clone()),
+                        ..CompletionItemLabelDetails::default()
+                    }),
+                    kind: Some(CompletionItemKind::PROPERTY),
+                    insert_text: Some(column.0.clone()),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    ..CompletionItem::default()
+                });
+            }
+            Some(column_items)
+        }();
 
         let completions = concat_optional_vecs(table_completions, keyword_completions);
+        let completions = concat_optional_vecs(completions, column_completions);
         Ok(completions.map(CompletionResponse::Array))
     }
 }
@@ -112,7 +158,7 @@ pub async fn start_lsp() {
         }
     });
 
-    let (service, socket) = LspService::new(|client| Backend { client });
+    let (service, socket) = LspService::new(|client| Backend { client, repo });
     Server::new(stdin, stdout, socket).serve(service).await;
 }
 
