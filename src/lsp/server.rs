@@ -9,6 +9,7 @@ use crate::sql_tools::tokenizer::{intersection, tokenize, Token};
 use crate::sql_tools::tools::{get_table_columns, get_tables};
 use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
 
+use super::cache::{ALL_COLUMNS, TABLES_IN_FILE};
 use super::file_watch::async_watch;
 
 #[derive(Debug)]
@@ -61,6 +62,8 @@ impl LanguageServer for Backend {
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let all_tables = ALL_TABLES.lock().await;
+        let mut tables_in_file = TABLES_IN_FILE.lock().await;
+        let mut all_columns = ALL_COLUMNS.lock().await;
         let mut completions = || -> Option<Vec<CompletionItem>> {
             let mut table_items = Vec::new();
             for table in all_tables.iter() {
@@ -87,13 +90,16 @@ impl LanguageServer for Backend {
             }
             Some(keyword_items)
         }();
+        completions.concat(&keyword_completions);
         let sql_file_path = params
             .text_document_position
             .text_document
             .uri
             .to_file_path()
             .unwrap();
-        let sql_file_content = read_file_to_string(sql_file_path).unwrap();
+        let Ok(sql_file_content) = read_file_to_string(sql_file_path) else {
+            return Ok(completions.map(CompletionResponse::Array));
+        };
 
         let content_tokens: Vec<_> = tokenize(sql_file_content.clone())
             .iter()
@@ -105,16 +111,24 @@ impl LanguageServer for Backend {
             .collect();
         let tables = all_tables.iter().map(|t| t.clone().name).collect();
         let tables_to_query = intersection(tables, content_tokens);
-        let tables_to_query: Vec<_> = all_tables
+        let tables_to_query = all_tables
             .iter()
             .filter(|&t| tables_to_query.contains(&t.name))
             .map(|t| t.clone())
             .collect();
+        if tables_in_file.equals(&tables_to_query) {
+            completions.concat(&Some(all_columns.clone()));
+            return Ok(completions.map(CompletionResponse::Array));
+        } else {
+            all_columns.clear();
+            tables_in_file.clear();
+            for table in tables_to_query.iter() {
+                tables_in_file.insert(table.clone());
+            }
+        }
 
         let Ok(columns) = get_table_columns(self.repo.clone(), tables_to_query).await else {
-            completions.concat(&keyword_completions);
             return Ok(completions.map(CompletionResponse::Array))
-
         };
         let column_completions = || -> Option<Vec<CompletionItem>> {
             let mut column_items = Vec::new();
@@ -122,21 +136,21 @@ impl LanguageServer for Backend {
                 column_items.push(CompletionItem {
                     label: column.name.to_owned(),
                     label_details: Some(CompletionItemLabelDetails {
-                        detail: Some(column.name.to_owned()),
+                        detail: Some(column.table.to_owned()),
                         ..CompletionItemLabelDetails::default()
                     }),
                     kind: Some(CompletionItemKind::PROPERTY),
-                    insert_text: Some(column.table.to_owned()),
+                    insert_text: Some(column.name.to_owned()),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                     ..CompletionItem::default()
                 });
             }
+            for column in column_items.iter() {
+                all_columns.push(column.clone());
+            }
             Some(column_items)
         }();
-
-        completions
-            .concat(&keyword_completions)
-            .concat(&column_completions);
+        completions.concat(&column_completions);
         Ok(completions.map(CompletionResponse::Array))
     }
 }

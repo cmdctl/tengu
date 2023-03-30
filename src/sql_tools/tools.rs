@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::exec::get_conn;
 use crate::terminal_ui::repository::TenguRepository;
 use anyhow::Result;
@@ -54,8 +56,8 @@ pub async fn get_tables<R: TenguRepository>(repo: R) -> Result<Vec<Table>> {
 
 pub async fn get_table_columns<R: TenguRepository>(
     repo: R,
-    tables: Vec<Table>,
-) -> Result<Vec<Column>, Box<dyn std::error::Error>> {
+    tables: HashSet<Table>,
+) -> Result<HashSet<Column>, Box<dyn std::error::Error>> {
     let mut conn = get_conn(repo).await?;
     let mut params: Vec<&dyn ToSql> = Vec::new();
     let mut conditions = String::new();

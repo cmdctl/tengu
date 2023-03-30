@@ -1,5 +1,7 @@
+use std::collections::HashSet;
 use std::{
     fs::File,
+    hash::Hash,
     io::{BufReader, Read},
     path::PathBuf,
 };
@@ -17,6 +19,30 @@ impl<T: Clone> Concat<T> for Option<Vec<T>> {
             }
         }
         self.clone()
+    }
+}
+
+pub trait SetEq<T>
+where
+    T: Eq + Hash,
+{
+    fn equals(&self, other: &HashSet<T>) -> bool;
+}
+
+impl<T> SetEq<T> for HashSet<T>
+where
+    T: Eq + Hash,
+{
+    fn equals(&self, other: &HashSet<T>) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        for item in self.iter() {
+            if !other.contains(item) {
+                return false;
+            }
+        }
+        true
     }
 }
 
