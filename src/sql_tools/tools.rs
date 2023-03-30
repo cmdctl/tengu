@@ -9,6 +9,22 @@ pub struct Table {
     pub schema: String,
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Column {
+    pub name: String,
+    pub table: String,
+    pub schema: String,
+}
+
+impl From<Column> for Table {
+    fn from(column: Column) -> Self {
+        Table {
+            name: column.table,
+            schema: column.schema,
+        }
+    }
+}
+
 pub async fn get_tables<R: TenguRepository>(repo: R) -> Result<Vec<Table>> {
     let mut conn = get_conn(repo).await?;
     let sql = r#"
@@ -39,7 +55,7 @@ pub async fn get_tables<R: TenguRepository>(repo: R) -> Result<Vec<Table>> {
 pub async fn get_table_columns<R: TenguRepository>(
     repo: R,
     tables: Vec<Table>,
-) -> Result<Vec<(String, String)>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Column>, Box<dyn std::error::Error>> {
     let mut conn = get_conn(repo).await?;
     let mut params: Vec<&dyn ToSql> = Vec::new();
     let mut conditions = String::new();
@@ -61,7 +77,7 @@ pub async fn get_table_columns<R: TenguRepository>(
 
     let sql = format!(
         r#"
-        SELECT t.name AS table_name, c.name AS column_name
+        SELECT s.name AS schema_name, t.name AS table_name, c.name AS column_name
         FROM sys.tables t
         JOIN sys.schemas s ON t.schema_id = s.schema_id
         JOIN sys.columns c ON t.object_id = c.object_id
@@ -79,9 +95,14 @@ pub async fn get_table_columns<R: TenguRepository>(
         .into_iter()
         .flatten()
         .map(|row| {
-            let table = row.get::<&str, _>("table_name").unwrap();
             let column = row.get::<&str, _>("column_name").unwrap();
-            (column.to_string(), table.to_string())
+            let table = row.get::<&str, _>("table_name").unwrap();
+            let schema = row.get::<&str, _>("schema_name").unwrap();
+            Column {
+                name: column.to_string(),
+                table: table.to_string(),
+                schema: schema.to_string(),
+            }
         })
         .collect();
 

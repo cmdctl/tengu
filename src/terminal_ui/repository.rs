@@ -1,5 +1,5 @@
-use std::{fs, io::Write, path::PathBuf};
 use super::models::Connection;
+use std::{fs, io::Write, path::PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct FsTenguRepository {

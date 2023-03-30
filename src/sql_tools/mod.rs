@@ -1,10 +1,10 @@
 pub mod exec;
-pub mod tools;
-pub mod tokenizer;
 pub mod keywords;
+pub mod tokenizer;
+pub mod tools;
 
-use std::io;
 use anyhow::Result;
+use std::io;
 
 pub fn sql_from_stdin() -> Result<String> {
     let mut sql = String::new();

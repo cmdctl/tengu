@@ -1,16 +1,12 @@
-use std::collections::HashSet;
-use std::fs;
-use std::sync::Arc;
-
-use once_cell::sync::Lazy;
-use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use crate::lsp::cache::{reset_cache, ALL_TABLES};
+use crate::prelude::*;
 use crate::sql_tools::keywords::KEYWORDS;
 use crate::sql_tools::tokenizer::{intersection, tokenize, Token};
-use crate::sql_tools::tools::{get_table_columns, get_tables, Table};
+use crate::sql_tools::tools::{get_table_columns, get_tables};
 use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
 
 use super::file_watch::async_watch;
@@ -20,9 +16,6 @@ struct Backend {
     client: Client,
     repo: FsTenguRepository,
 }
-
-static ALL_TABLES: Lazy<Arc<Mutex<HashSet<Table>>>> =
-    Lazy::new(|| Arc::new(Mutex::new(HashSet::new())));
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
@@ -45,6 +38,9 @@ impl LanguageServer for Backend {
                 completion_provider: Some(CompletionOptions {
                     resolve_provider: Some(false),
                     trigger_characters: None,
+                    completion_item: Some(CompletionOptionsCompletionItem {
+                        label_details_support: Some(true),
+                    }),
                     ..CompletionOptions::default()
                 }),
                 ..ServerCapabilities::default()
@@ -65,7 +61,7 @@ impl LanguageServer for Backend {
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let all_tables = ALL_TABLES.lock().await;
-        let table_completions = || -> Option<Vec<CompletionItem>> {
+        let mut completions = || -> Option<Vec<CompletionItem>> {
             let mut table_items = Vec::new();
             for table in all_tables.iter() {
                 table_items.push(CompletionItem {
@@ -97,7 +93,8 @@ impl LanguageServer for Backend {
             .uri
             .to_file_path()
             .unwrap();
-        let sql_file_content = fs::read_to_string(sql_file_path).unwrap();
+        let sql_file_content = read_file_to_string(sql_file_path).unwrap();
+
         let content_tokens: Vec<_> = tokenize(sql_file_content.clone())
             .iter()
             .filter(|&t| if let Token::Token(_) = t { true } else { false })
@@ -115,7 +112,7 @@ impl LanguageServer for Backend {
             .collect();
 
         let Ok(columns) = get_table_columns(self.repo.clone(), tables_to_query).await else {
-            let completions = concat_optional_vecs(table_completions, keyword_completions);
+            completions.concat(&keyword_completions);
             return Ok(completions.map(CompletionResponse::Array))
 
         };
@@ -123,13 +120,13 @@ impl LanguageServer for Backend {
             let mut column_items = Vec::new();
             for column in columns.iter() {
                 column_items.push(CompletionItem {
-                    label: column.0.clone(),
+                    label: column.name.to_owned(),
                     label_details: Some(CompletionItemLabelDetails {
-                        detail: Some(column.1.clone()),
+                        detail: Some(column.name.to_owned()),
                         ..CompletionItemLabelDetails::default()
                     }),
                     kind: Some(CompletionItemKind::PROPERTY),
-                    insert_text: Some(column.0.clone()),
+                    insert_text: Some(column.table.to_owned()),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                     ..CompletionItem::default()
                 });
@@ -137,8 +134,9 @@ impl LanguageServer for Backend {
             Some(column_items)
         }();
 
-        let completions = concat_optional_vecs(table_completions, keyword_completions);
-        let completions = concat_optional_vecs(completions, column_completions);
+        completions
+            .concat(&keyword_completions)
+            .concat(&column_completions);
         Ok(completions.map(CompletionResponse::Array))
     }
 }
@@ -150,43 +148,13 @@ pub async fn start_lsp() {
     let active_connection_path = repo.activate_connection_path();
 
     tokio::spawn(async move {
-        match async_watch(active_connection_path, reset_all_tables).await {
-            Ok(_) => {}
-            Err(e) => {
-                println!("watch error: {:?}", e);
-            }
-        }
+        async_watch(active_connection_path, reset_cache)
+            .await
+            .map_err(|e| {
+                eprintln!("Error watching active connection path: {}", e);
+            })
     });
 
     let (service, socket) = LspService::new(|client| Backend { client, repo });
     Server::new(stdin, stdout, socket).serve(service).await;
-}
-
-fn concat_optional_vecs<T>(opt_vec1: Option<Vec<T>>, opt_vec2: Option<Vec<T>>) -> Option<Vec<T>> {
-    match (opt_vec1, opt_vec2) {
-        (Some(mut vec1), Some(vec2)) => {
-            vec1.extend(vec2);
-            Some(vec1)
-        }
-        (Some(vec1), None) => Some(vec1),
-        (None, Some(vec2)) => Some(vec2),
-        (None, None) => None,
-    }
-}
-
-async fn reset_all_tables(e: notify::Result<notify::Event>) {
-    match e {
-        Ok(_) => {
-            let mut all_tables = ALL_TABLES.lock().await;
-            all_tables.clear();
-            let repo = FsTenguRepository::new();
-            let tables = get_tables(repo).await.unwrap();
-            for table in tables {
-                all_tables.insert(table);
-            }
-        }
-        Err(e) => {
-            println!("watch error: {:?}", e);
-        }
-    }
 }

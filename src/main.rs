@@ -7,6 +7,7 @@ use terminal_ui::{repository::FsTenguRepository, start_tui};
 use tokio::main;
 
 mod lsp;
+mod prelude;
 mod sql_tools;
 mod terminal_ui;
 
