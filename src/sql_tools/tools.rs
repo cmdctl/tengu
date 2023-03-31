@@ -16,6 +16,8 @@ pub struct Column {
     pub name: String,
     pub table: String,
     pub schema: String,
+    pub data_type: String,
+    pub is_nullable: bool,
 }
 
 impl From<Column> for Table {
@@ -79,10 +81,11 @@ pub async fn get_table_columns<R: TenguRepository>(
 
     let sql = format!(
         r#"
-        SELECT s.name AS schema_name, t.name AS table_name, c.name AS column_name
+        SELECT s.name AS schema_name, t.name AS table_name, c.name AS column_name, ic.data_type, ic.is_nullable
         FROM sys.tables t
         JOIN sys.schemas s ON t.schema_id = s.schema_id
         JOIN sys.columns c ON t.object_id = c.object_id
+        JOIN information_schema.columns ic ON ic.table_name = t.name AND ic.column_name = c.name
         WHERE {}
         ORDER BY s.name, t.name, c.column_id;
     "#,
@@ -100,13 +103,21 @@ pub async fn get_table_columns<R: TenguRepository>(
             let column = row.get::<&str, _>("column_name").unwrap();
             let table = row.get::<&str, _>("table_name").unwrap();
             let schema = row.get::<&str, _>("schema_name").unwrap();
+            let data_type = row.get::<&str, _>("data_type").unwrap();
+            let is_nullable = row.get::<&str, _>("is_nullable").unwrap().eq("YES");
             Column {
                 name: column.to_string(),
                 table: table.to_string(),
                 schema: schema.to_string(),
+                data_type: data_type.to_string(),
+                is_nullable,
             }
         })
         .collect();
 
     Ok(results)
 }
+
+// SELECT column_name, data_type, is_nullable
+// FROM information_schema.columns
+// WHERE table_name = 'Persons';

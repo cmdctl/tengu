@@ -81,10 +81,18 @@ fn get_value<'a>(row: &'a Row, col: &Column) -> String {
             }
         }
         ColumnType::Int1 | ColumnType::Int2 | ColumnType::Int4 | ColumnType::Intn => {
-            if let Some(val) = row.get::<i32, _>(col.name()) {
-                val.to_string()
-            } else {
-                "NULL".to_string()
+            match row.try_get::<i32, _>(col.name()) {
+                Ok(val) => match val {
+                    Some(val) => val.to_string(),
+                    None => "NULL".to_string(),
+                },
+                Err(_) => match row.try_get::<u8, _>(col.name()) {
+                    Ok(val) => match val {
+                        Some(val) => val.to_string(),
+                        None => "NULL".to_string(),
+                    },
+                    Err(_) => "NULL".to_string(),
+                },
             }
         }
         ColumnType::Int8 => {

@@ -1,16 +1,17 @@
+use std::collections::HashSet;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
+use super::cache::{ALL_COLUMNS, TABLES_IN_FILE};
+use super::document::get_word_at_position;
+use super::file_watch::async_watch;
 use crate::lsp::cache::{reset_cache, ALL_TABLES};
 use crate::prelude::*;
 use crate::sql_tools::keywords::KEYWORDS;
 use crate::sql_tools::tokenizer::{intersection, tokenize, Token};
 use crate::sql_tools::tools::{get_table_columns, get_tables};
 use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
-
-use super::cache::{ALL_COLUMNS, TABLES_IN_FILE};
-use super::file_watch::async_watch;
 
 #[derive(Debug)]
 struct Backend {
@@ -36,6 +37,7 @@ impl LanguageServer for Backend {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
                     TextDocumentSyncKind::FULL,
                 )),
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
                 completion_provider: Some(CompletionOptions {
                     resolve_provider: Some(false),
                     trigger_characters: None,
@@ -153,13 +155,52 @@ impl LanguageServer for Backend {
         completions.concat(&column_completions);
         Ok(completions.map(CompletionResponse::Array))
     }
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let all_tables = ALL_TABLES.lock().await;
+        let Ok(file_path) = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_file_path() else {
+            return Ok(None);
+        };
+
+        let position = &params.text_document_position_params.position;
+        let Some(word) = get_word_at_position(position.line, position.character, file_path) else {
+            return Ok(None);
+        };
+        let Some(table) = all_tables.iter().find(|t| t.name == word) else {
+            return Ok(None);
+        };
+        let table_set = HashSet::from_iter(vec![table.clone()]);
+        let Ok(columns) = get_table_columns(self.repo.clone(), table_set).await else {
+            return Ok(None);
+        };
+        let mut contents = Vec::new();
+        for column in columns.iter() {
+            contents.push(MarkedString::from_markdown(format!(
+                "**{}**: {} {}",
+                column.name,
+                column.data_type,
+                if column.is_nullable {
+                    "NULL"
+                } else {
+                    "NOT NULL"
+                }
+            )));
+        }
+        Ok(Some(Hover {
+            contents: HoverContents::Array(contents),
+            range: None,
+        }))
+    }
 }
 
 pub async fn start_lsp() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
     let repo = FsTenguRepository::new();
-    let active_connection_path = repo.activate_connection_path();
+    let active_connection_path = repo.active_connection_path();
 
     tokio::spawn(async move {
         async_watch(active_connection_path, reset_cache)
