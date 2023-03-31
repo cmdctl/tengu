@@ -82,34 +82,34 @@ fn get_partial_word(line: String) -> Option<String> {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn should_be_able_to_find_word_in_a_line() {
-    //     let line = "SELECT * FROM dbo.tbl_person;".to_string();
-    //     let char_num = 10;
-    //     let word = find_word(line.clone(), char_num);
-    //     assert_eq!(word, Some("FROM".to_string()));
+    #[test]
+    fn should_be_able_to_find_word_in_a_line() {
+        let line = "SELECT * FROM dbo.tbl_person;".to_string();
+        let char_num = 10;
+        let word = find_word(line.clone(), char_num);
+        assert_eq!(word, Some("FROM".to_string()));
 
-    //     let line = "SELECT * FROM dbo.tbl_person;".to_string();
-    //     let char_num = 0;
-    //     let word = find_word(line.clone(), char_num);
-    //     assert_eq!(word, Some("SELECT".to_string()));
+        let line = "SELECT * FROM dbo.tbl_person;".to_string();
+        let char_num = 0;
+        let word = find_word(line.clone(), char_num);
+        assert_eq!(word, Some("SELECT".to_string()));
 
-    //     let char_num = line.len() as u32 - 2;
-    //     let word = find_word(line.clone(), char_num);
-    //     assert_eq!(word, Some("tbl_person".to_string()));
+        let char_num = line.len() as u32 - 2;
+        let word = find_word(line.clone(), char_num);
+        assert_eq!(word, Some("tbl_person".to_string()));
 
-    //     let char_num = line.len() as u32 - 1;
-    //     let word = find_word(line.clone(), char_num);
-    //     assert_eq!(word, None);
+        let char_num = line.len() as u32 - 1;
+        let word = find_word(line.clone(), char_num);
+        assert_eq!(word, None);
 
-    //     let char_num = 6;
-    //     let word = find_word(line.clone(), char_num);
-    //     assert_eq!(word, None);
+        let char_num = 6;
+        let word = find_word(line.clone(), char_num);
+        assert_eq!(word, None);
 
-    //     let char_num = 17;
-    //     let word = find_word(line.clone(), char_num);
-    //     assert_eq!(word, None);
-    // }
+        let char_num = 17;
+        let word = find_word(line.clone(), char_num);
+        assert_eq!(word, None);
+    }
     #[test]
     fn should_get_the_table_name_if_cursor_is_at_beggining_of_the_word() {
         let line = "SELECT PersonID FROM Persons;".to_string();
