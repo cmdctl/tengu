@@ -37,16 +37,13 @@ fn find_word(line: String, position: u32) -> Option<String> {
         .collect::<String>();
     let left_part_of_word =
         get_partial_word(line_before_position.to_string()).unwrap_or("".to_string());
-    println!("left_part_of_word: {}", left_part_of_word);
     let right_part_of_word =
         get_partial_word(line_after_position.to_string()).unwrap_or("".to_string());
-    println!("right_part_of_word: {}", right_part_of_word);
     let word = format!(
         "{}{}",
         left_part_of_word.chars().rev().collect::<String>(),
         right_part_of_word
     );
-    println!("word: {}", word);
     Some(word)
 }
 
