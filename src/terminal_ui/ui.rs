@@ -1,6 +1,6 @@
 use std::io;
 
-use super::models::{InputMode, Tengu};
+use super::models::{Engine, InputMode, Tengu};
 use super::repository::{FsTenguRepository, TenguRepository};
 use tui::{
     backend::CrosstermBackend,
@@ -186,10 +186,10 @@ fn new_section(
         .direction(Direction::Vertical)
         .constraints(
             [
-                Constraint::Min(4),
+                Constraint::Min(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
-                Constraint::Length(3),
+                Constraint::Length(6),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
@@ -224,18 +224,29 @@ fn new_section(
         });
     f.render_widget(name_input, new_section_chunk[2]);
 
-    let engine_input = Paragraph::new(state.new_engine.to_owned())
+    let items = vec![
+        ListItem::new(Engine::SqlServer.to_string()),
+        ListItem::new(Engine::Postgres.to_string()),
+        ListItem::new(Engine::Mysql.to_string()),
+    ];
+    let engine_list = List::new(items)
         .block(
             Block::default()
                 .title("Engine")
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded),
         )
+        .highlight_symbol("->")
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
         .style(match state.mode {
             InputMode::Engine => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         });
-    f.render_widget(engine_input, new_section_chunk[3]);
+    f.render_stateful_widget(
+        engine_list,
+        new_section_chunk[3],
+        &mut state.engines_list_state,
+    );
 
     let host_input = Paragraph::new(state.new_host.to_owned())
         .block(

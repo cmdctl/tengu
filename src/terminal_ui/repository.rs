@@ -74,8 +74,9 @@ impl TenguRepository for FsTenguRepository {
                     return;
                 }
                 let conn_file = fs::File::open(conn_path).unwrap();
-                if let Ok(conn) = serde_json::from_reader(conn_file) {
-                    connections.push(conn);
+                match serde_json::from_reader(conn_file) {
+                    Ok(conn) => connections.push(conn),
+                    Err(e) => println!("Error reading connection file: {}", e),
                 }
             }
         });

@@ -81,13 +81,16 @@ pub fn run_app(
                 InputMode::Engine => match key.code {
                     KeyCode::Esc => {
                         state.clear_fields();
+                        state.engines_list_state.select(None);
                         state.change_mode(InputMode::Normal);
                     }
-                    KeyCode::Char(c) => {
-                        state.new_engine.push(c);
+                    KeyCode::Char('j') => {
+                        state.engine_move_down();
+                        state.pick_engine();
                     }
-                    KeyCode::Backspace => {
-                        state.new_engine.pop();
+                    KeyCode::Char('k') => {
+                        state.engine_move_up();
+                        state.pick_engine();
                     }
                     KeyCode::Tab => {
                         state.change_mode(InputMode::Host);
