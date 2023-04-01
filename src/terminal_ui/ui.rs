@@ -189,7 +189,7 @@ fn new_section(
                 Constraint::Min(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
-                Constraint::Length(6),
+                Constraint::Length(5),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
