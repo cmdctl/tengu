@@ -1,1 +1,0 @@
-SELECT PersonID FROM Persons;

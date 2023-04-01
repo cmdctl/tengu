@@ -1,15 +1,19 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use db::service::{Service, TenguService};
 use lsp::server::start_lsp;
-use sql_tools::exec::exec_sql;
-use sql_tools::sql_from_stdin;
-use terminal_ui::{repository::FsTenguRepository, start_tui};
+use prelude::*;
+use terminal_ui::{
+    repository::{FsTenguRepository, TenguRepository},
+    start_tui,
+};
 use tokio::main;
 
+mod db;
 mod lsp;
 mod prelude;
-mod sql_tools;
 mod terminal_ui;
+mod tokenizer;
 
 #[derive(Subcommand, Debug)]
 enum Command {
@@ -30,7 +34,12 @@ async fn main() -> Result<()> {
         Some(Command::Exec) => {
             let sql = sql_from_stdin()?;
             let repo = FsTenguRepository::new();
-            exec_sql(repo, &sql).await?;
+            let Some(active_connection) = repo.get_active_connection() else {
+                println!("No active connection");
+                return Ok(());
+            };
+            let service = TenguService::new(active_connection.engine, repo);
+            service.exec_and_print(&sql).await?;
         }
         Some(Command::Lsp) => {
             start_lsp().await;

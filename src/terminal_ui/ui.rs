@@ -1,6 +1,8 @@
 use std::io;
 
-use super::models::{Engine, InputMode, Tengu};
+use crate::db::engine::Engine;
+
+use super::models::{InputMode, Tengu};
 use super::repository::{FsTenguRepository, TenguRepository};
 use tui::{
     backend::CrosstermBackend,

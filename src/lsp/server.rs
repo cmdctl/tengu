@@ -6,24 +6,22 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 use super::cache::{ALL_COLUMNS, TABLES_IN_FILE};
 use super::document::get_word_at_position;
 use super::file_watch::async_watch;
+use crate::db::service::{Service, TenguService};
 use crate::lsp::cache::{reset_cache, ALL_TABLES};
 use crate::prelude::*;
-use crate::sql_tools::keywords::KEYWORDS;
-use crate::sql_tools::tokenizer::{intersection, tokenize, Token};
-use crate::sql_tools::tools::{get_table_columns, get_tables};
 use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
+use crate::tokenizer::{intersection, tokenize, Token};
 
 #[derive(Debug)]
 struct Backend {
     client: Client,
-    repo: FsTenguRepository,
+    service: TenguService,
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        let repo = FsTenguRepository::new();
-        let tables = get_tables(repo).await.unwrap();
+        let tables = self.service.get_tables().await.unwrap_or(vec![]);
         let mut all_tables = ALL_TABLES.lock().await;
         for table in tables {
             all_tables.insert(table);
@@ -81,7 +79,7 @@ impl LanguageServer for Backend {
         }();
         let keyword_completions = || -> Option<Vec<CompletionItem>> {
             let mut keyword_items = Vec::new();
-            for keyword in KEYWORDS.iter() {
+            for keyword in self.service.get_keywords().iter() {
                 keyword_items.push(CompletionItem {
                     label: keyword.to_string(),
                     kind: Some(CompletionItemKind::KEYWORD),
@@ -129,7 +127,7 @@ impl LanguageServer for Backend {
             }
         }
 
-        let Ok(columns) = get_table_columns(self.repo.clone(), tables_to_query).await else {
+        let Ok(columns) = self.service.get_table_columns(tables_to_query).await else {
             return Ok(completions.map(CompletionResponse::Array))
         };
         let column_completions = || -> Option<Vec<CompletionItem>> {
@@ -173,7 +171,7 @@ impl LanguageServer for Backend {
             return Ok(None);
         };
         let table_set = HashSet::from_iter(vec![table.clone()]);
-        let Ok(columns) = get_table_columns(self.repo.clone(), table_set).await else {
+        let Ok(columns) = self.service.get_table_columns(table_set).await else {
             return Ok(None);
         };
         let mut contents = Vec::new();
@@ -201,6 +199,11 @@ pub async fn start_lsp() {
     let stdout = tokio::io::stdout();
     let repo = FsTenguRepository::new();
     let active_connection_path = repo.active_connection_path();
+    let Some(active_connection) = repo.get_active_connection() else {
+        eprintln!("No active connection found");
+        return;
+    };
+    let service = TenguService::new(active_connection.engine, repo);
 
     tokio::spawn(async move {
         async_watch(active_connection_path, reset_cache)
@@ -210,6 +213,6 @@ pub async fn start_lsp() {
             })
     });
 
-    let (service, socket) = LspService::new(|client| Backend { client, repo });
+    let (service, socket) = LspService::new(|client| Backend { client, service });
     Server::new(stdin, stdout, socket).serve(service).await;
 }

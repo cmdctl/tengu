@@ -1,55 +1,8 @@
-use crate::terminal_ui::repository::TenguRepository;
-use anyhow::{anyhow, Result};
-use prettytable::{Cell, Row as TRow, Table};
 use tiberius::{
-    numeric::Numeric, time::chrono::NaiveDateTime, xml::XmlData, AuthMethod, Client, Column,
-    ColumnType, Config, Row, Uuid,
+    numeric::Numeric, time::chrono::NaiveDateTime, xml::XmlData, Column, ColumnType, Row, Uuid,
 };
-use tokio::net::TcpStream;
-use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
-pub async fn get_conn<R: TenguRepository>(repo: R) -> Result<Client<Compat<TcpStream>>> {
-    let Some(conn) = repo.get_active_connection() else {
-        return Err(anyhow!("No active connection found"));
-    };
-    let mut config = Config::new();
-    config.host(conn.host);
-    config.port(conn.port.parse::<u16>().unwrap());
-    config.database(conn.database);
-    config.authentication(AuthMethod::sql_server(&conn.username, &conn.password));
-    config.trust_cert();
-
-    let tcp = TcpStream::connect(config.get_addr()).await?;
-    tcp.set_nodelay(true)?;
-
-    Ok(Client::connect(config, tcp.compat_write()).await?)
-}
-
-pub async fn exec_sql<R: TenguRepository>(repo: R, sql: &str) -> Result<()> {
-    let mut conn = get_conn(repo).await?;
-    let mut table = Table::new();
-    let stream = conn.simple_query(sql).await?.into_results().await?;
-    for rows in stream {
-        for (i, row) in rows.iter().enumerate() {
-            if i == 0 {
-                let mut headers = Vec::with_capacity(row.columns().len());
-                row.columns().iter().for_each(|col| {
-                    headers.push(Cell::new(col.name()));
-                });
-                table.add_row(TRow::new(headers));
-            }
-            let mut row_data = Vec::with_capacity(row.columns().len());
-            row.columns().iter().for_each(|col| {
-                row_data.push(Cell::new(&get_value(row, col)));
-            });
-            table.add_row(TRow::new(row_data));
-        }
-    }
-    table.printstd();
-    Ok(())
-}
-
-fn get_value<'a>(row: &'a Row, col: &Column) -> String {
+pub(crate) fn get_value<'a>(row: &'a Row, col: &Column) -> String {
     match col.column_type() {
         ColumnType::Bit | ColumnType::Bitn => {
             if let Some(val) = row.get::<bool, _>(col.name()) {

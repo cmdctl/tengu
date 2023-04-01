@@ -5,8 +5,9 @@ use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 use tower_lsp::lsp_types::CompletionItem;
 
-use crate::sql_tools::tools::{get_tables, Table};
-use crate::terminal_ui::repository::FsTenguRepository;
+use crate::db::service::{Service, TenguService};
+use crate::db::table::Table;
+use crate::terminal_ui::repository::{FsTenguRepository, TenguRepository};
 
 pub static ALL_TABLES: Lazy<Arc<Mutex<HashSet<Table>>>> =
     Lazy::new(|| Arc::new(Mutex::new(HashSet::new())));
@@ -27,7 +28,12 @@ pub async fn reset_cache(e: notify::Result<notify::Event>) {
             let mut all_columns = ALL_COLUMNS.lock().await;
             all_columns.clear();
             let repo = FsTenguRepository::new();
-            if let Ok(tables) = get_tables(repo).await {
+            let Some(active_conn) = repo.get_active_connection() else {
+                return;
+            };
+            let service = TenguService::new(active_conn.engine, repo);
+
+            if let Ok(tables) = service.get_tables().await {
                 for table in tables {
                     all_tables.insert(table);
                 }

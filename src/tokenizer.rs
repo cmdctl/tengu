@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::tools::Table;
+use crate::db::table::Table;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum Token {
