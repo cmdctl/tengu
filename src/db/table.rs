@@ -1,6 +1,8 @@
 use super::column::Column;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+use sqlx::FromRow;
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, FromRow)]
 pub struct Table {
     pub name: String,
     pub schema: String,

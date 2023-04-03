@@ -1,4 +1,6 @@
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+use sqlx::FromRow;
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, FromRow)]
 pub struct Column {
     pub name: String,
     pub table: String,

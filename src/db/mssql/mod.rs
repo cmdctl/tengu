@@ -1,4 +1,3 @@
-mod exec;
 mod keywords;
 
 use crate::db::column::Column as TenguColumn;
@@ -6,14 +5,11 @@ use crate::db::table::Table;
 use crate::terminal_ui::repository::TenguRepository;
 use anyhow::anyhow;
 use anyhow::Result;
-use prettytable::{Cell, Row as TRow, Table as PrettyTable};
 use std::collections::HashSet;
 use tiberius::ToSql;
 use tiberius::{AuthMethod, Client, Config};
 use tokio::net::TcpStream;
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
-
-use self::exec::get_value;
 
 use super::service::Service;
 
@@ -46,29 +42,6 @@ impl<T: TenguRepository + Sync> SqlServer<T> {
 
 #[tower_lsp::async_trait]
 impl<T: TenguRepository + Sync + Send> Service for SqlServer<T> {
-    async fn exec_and_print(&self, sql: &str) -> Result<()> {
-        let mut conn = self.get_conn::<T>().await?;
-        let mut table = PrettyTable::new();
-        let stream = conn.simple_query(sql).await?.into_results().await?;
-        for rows in stream {
-            for (i, row) in rows.iter().enumerate() {
-                if i == 0 {
-                    let mut headers = Vec::with_capacity(row.columns().len());
-                    row.columns().iter().for_each(|col| {
-                        headers.push(Cell::new(col.name()));
-                    });
-                    table.add_row(TRow::new(headers));
-                }
-                let mut row_data = Vec::with_capacity(row.columns().len());
-                row.columns().iter().for_each(|col| {
-                    row_data.push(Cell::new(&get_value(row, col)));
-                });
-                table.add_row(TRow::new(row_data));
-            }
-        }
-        table.printstd();
-        Ok(())
-    }
     async fn get_tables(&self) -> Result<Vec<Table>> {
         let mut conn = self.get_conn::<T>().await?;
         let sql = r#"

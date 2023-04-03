@@ -1,6 +1,4 @@
-use anyhow::Result;
 use std::collections::HashSet;
-use std::io;
 use std::{
     fs::File,
     hash::Hash,
@@ -55,16 +53,4 @@ pub fn read_file_to_string(file_path: PathBuf) -> std::io::Result<String> {
     let mut contents = String::with_capacity(size as usize);
     buf_reader.read_to_string(&mut contents)?;
     Ok(contents)
-}
-
-pub fn sql_from_stdin() -> Result<String> {
-    let mut sql = String::new();
-    let mut lines = io::stdin().lines();
-    while let Some(line) = lines.next() {
-        let line = line?;
-        if !line.starts_with("--") {
-            sql.push_str(&line);
-        }
-    }
-    Ok(sql)
 }
