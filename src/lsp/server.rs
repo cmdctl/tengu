@@ -180,7 +180,7 @@ impl LanguageServer for Backend {
                 "**{}**: {} {}",
                 column.name,
                 column.data_type,
-                if column.is_nullable {
+                if column.is_nullable.eq("YES"){
                     "NULL"
                 } else {
                     "NOT NULL"

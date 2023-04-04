@@ -6,5 +6,5 @@ pub struct Column {
     pub table: String,
     pub schema: String,
     pub data_type: String,
-    pub is_nullable: bool,
+    pub is_nullable: String,
 }

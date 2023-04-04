@@ -113,13 +113,13 @@ impl<T: TenguRepository + Sync + Send> Service for SqlServer<T> {
                 let table = row.get::<&str, _>("table_name").unwrap();
                 let schema = row.get::<&str, _>("schema_name").unwrap();
                 let data_type = row.get::<&str, _>("data_type").unwrap();
-                let is_nullable = row.get::<&str, _>("is_nullable").unwrap().eq("YES");
+                let is_nullable = row.get::<&str, _>("is_nullable").unwrap();
                 TenguColumn {
                     name: column.to_string(),
                     table: table.to_string(),
                     schema: schema.to_string(),
                     data_type: data_type.to_string(),
-                    is_nullable,
+                    is_nullable: is_nullable.to_string(),
                 }
             })
             .collect();
