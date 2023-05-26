@@ -3,3 +3,4 @@
 
 Supported engines:
   * sqlserver
+  * posgres
