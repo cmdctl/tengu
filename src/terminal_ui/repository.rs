@@ -56,7 +56,10 @@ impl TenguRepository for FsTenguRepository {
     }
 
     fn get_active_connection(&self) -> Option<Connection> {
-        let active_conn_file = fs::File::open(self.active_conn_file_path.clone()).unwrap();
+        let Ok(active_conn_file) = fs::File::open(self.active_conn_file_path.clone()) else {
+            println!("No active connection found");
+            return None;
+        };
         if let Ok(conn) = serde_json::from_reader(active_conn_file) {
             Some(conn)
         } else {

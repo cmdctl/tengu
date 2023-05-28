@@ -1,7 +1,7 @@
 mod keywords;
 
 use crate::db::column::Column as TenguColumn;
-use crate::db::table::Table;
+use crate::db::table::Table as TenguTable;
 use crate::terminal_ui::repository::TenguRepository;
 use anyhow::anyhow;
 use anyhow::Result;
@@ -42,7 +42,7 @@ impl<T: TenguRepository + Sync> SqlServer<T> {
 
 #[tower_lsp::async_trait]
 impl<T: TenguRepository + Sync + Send> Service for SqlServer<T> {
-    async fn get_tables(&self) -> Result<Vec<Table>> {
+    async fn get_tables(&self) -> Result<Vec<TenguTable>> {
         let mut conn = self.get_conn::<T>().await?;
         let sql = r#"
             SELECT s.name AS schema_name, t.name AS table_name
@@ -60,7 +60,7 @@ impl<T: TenguRepository + Sync + Send> Service for SqlServer<T> {
             .map(|row| {
                 let schema = row.get::<&str, _>("schema_name").unwrap();
                 let name = row.get::<&str, _>("table_name").unwrap();
-                Table {
+                TenguTable {
                     name: name.to_string(),
                     schema: schema.to_string(),
                 }
@@ -68,7 +68,7 @@ impl<T: TenguRepository + Sync + Send> Service for SqlServer<T> {
             .collect();
         Ok(result)
     }
-    async fn get_table_columns(&self, tables: HashSet<Table>) -> Result<HashSet<TenguColumn>> {
+    async fn get_table_columns(&self, tables: HashSet<TenguTable>) -> Result<HashSet<TenguColumn>> {
         let mut conn = self.get_conn::<T>().await?;
         let mut params: Vec<&dyn ToSql> = Vec::new();
         let mut conditions = String::new();
